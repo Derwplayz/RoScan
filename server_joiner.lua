@@ -26,7 +26,12 @@ local function isRetryableError(errorMessage)
        string.find(lowerError, "failed to join") or
        string.find(lowerError, "not found") or
        string.find(lowerError, "invalid place") or
-       string.find(lowerError, "teleport failed") then
+       string.find(lowerError, "teleport failed") or
+       string.find(lowerError, "don't have permission") or
+       string.find(lowerError, "do not have permission") or
+       string.find(lowerError, "permission") or
+       string.find(lowerError, "access denied") or
+       string.find(lowerError, "not allowed") then
         return true
     end
     
