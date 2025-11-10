@@ -180,24 +180,16 @@ local function saveScanData(scanResults)
     local fileContent = ""
     
     -- Add header
-    fileContent = fileContent .. "=== ANIMAL SCAN RESULTS ===
-"
-    fileContent = fileContent .. "Server Job ID: " .. game.JobId .. "
-"
-    fileContent = fileContent .. "Scan Time: " .. timestamp .. "
-"
-    fileContent = fileContent .. "Total Animals Found: " .. scanResults.totalFound .. "
-"
-    fileContent = fileContent .. "Total Value: $" .. formatNumber(scanResults.totalValue) .. "
-
-"
+    fileContent = fileContent .. "=== ANIMAL SCAN RESULTS ===\n"
+    fileContent = fileContent .. "Server Job ID: " .. game.JobId .. "\n"
+    fileContent = fileContent .. "Scan Time: " .. timestamp .. "\n"
+    fileContent = fileContent .. "Total Animals Found: " .. scanResults.totalFound .. "\n"
+    fileContent = fileContent .. "Total Value: $" .. formatNumber(scanResults.totalValue) .. "\n\n"
     
     -- Add animals found
-    fileContent = fileContent .. "=== ANIMALS FOUND ===
-"
+    fileContent = fileContent .. "=== ANIMALS FOUND ===\n"
     for _, animal in ipairs(scanResults.animals) do
-        fileContent = fileContent .. "✓ " .. animal.name .. " (" .. animal.rarity .. ") in " .. animal.plot .. " - $" .. formatNumber(animal.price) .. " (Gen " .. animal.generation .. ")
-"
+        fileContent = fileContent .. "✓ " .. animal.name .. " (" .. animal.rarity .. ") in " .. animal.plot .. " - $" .. formatNumber(animal.price) .. " (Gen " .. animal.generation .. ")\n"
     end
     
     -- Save using writefile
@@ -300,8 +292,7 @@ local function loadJobIds()
         local jobIdsTable = {}
         
         -- Find the jobIds table in the loaded script
-        for line in response:gmatch("[^
-]+") do
+        for line in response:gmatch("[^\r\n]+") do
             if line:match("local jobIds = {") then
                 -- Extract all the IDs from the table
                 for id in response:gmatch('"([a-f0-9%-]+)"') do
