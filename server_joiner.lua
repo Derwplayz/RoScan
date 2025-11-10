@@ -25,7 +25,7 @@ local originalServerId = game.JobId
 
 -- Complete animal database with Generation and Price
 local animalDatabase = {
-      ["Cocofanto Elefanto"] = {Rarity = "Brainrot God", Price = 5000000, Generation = 17500},
+    ["Cocofanto Elefanto"] = {Rarity = "Brainrot God", Price = 5000000, Generation = 17500},
     ["Antonio"] = {Rarity = "Brainrot God", Price = 6000000, Generation = 18500},
     ["Girafa Celestre"] = {Rarity = "Brainrot God", Price = 7500000, Generation = 20000},
     ["Gattatino Nyanino"] = {Rarity = "Brainrot God", Price = 7500000, Generation = 35000},
