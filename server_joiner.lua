@@ -20,6 +20,9 @@ local MAX_TELEPORT_RETRIES = 5
 local RETRY_DELAY = 10
 local currentRetries = 0
 
+-- Store original server ID to check if we actually left
+local originalServerId = game.JobId
+
 -- Complete animal database with Generation and Price
 local animalDatabase = {
     ["Cocofanto Elefanto"] = {Rarity = "Brainrot God", Price = 5000000, Generation = 17500},
@@ -80,7 +83,9 @@ local function isRetryableError(errorMessage)
        string.find(lowerError, "not allowed") or
        string.find(lowerError, "connection") or
        string.find(lowerError, "timeout") or
-       string.find(lowerError, "network") then
+       string.find(lowerError, "network") or
+       string.find(lowerError, "gameended") or
+       string.find(lowerError, "could not find") then
         return true
     end
     
@@ -122,14 +127,6 @@ local function scanForTeleportErrors()
         table.insert(errorsFound, "❌ Maximum teleport retries exceeded: " .. currentRetries)
     end
     
-    -- Check internet connection (simple ping test)
-    local httpSuccess, httpError = pcall(function()
-        return HttpService:GetAsync("https://google.com")
-    end)
-    if not httpSuccess then
-        table.insert(warningsFound, "⚠️ Internet connection may be unstable")
-    end
-    
     -- Display scan results
     if #errorsFound > 0 then
         print("❌ TELEPORT ERROR SCAN RESULTS:")
@@ -148,6 +145,26 @@ local function scanForTeleportErrors()
     
     print("✅ Teleport error scan passed - no critical errors found")
     return true, warningsFound
+end
+
+-- Function to check if we're still in the same server after teleport attempt
+local function checkTeleportSuccess()
+    print("🔍 Checking if teleport was successful...")
+    
+    -- Wait a moment for the teleport to potentially complete
+    wait(3)
+    
+    local currentServerId = game.JobId
+    print("   Original Server: " .. originalServerId)
+    print("   Current Server: " .. currentServerId)
+    
+    if currentServerId == originalServerId then
+        print("❌ Teleport failed - still in original server")
+        return false
+    else
+        print("✅ Teleport successful - in new server: " .. currentServerId)
+        return true
+    end
 end
 
 -- Function to restart the entire script
@@ -271,12 +288,15 @@ local function scanForValuableAnimals()
     return valuableAnimals
 end
 
--- Enhanced function to join next server with error scanning and retry logic
+-- Enhanced function to join next server with proper success/failure detection
 local function joinNextServer()
     if isTeleporting then
         print("⚠️ Already attempting to teleport, skipping...")
         return
     end
+    
+    -- Update original server ID
+    originalServerId = game.JobId
     
     -- Step 1: Pre-teleport error scan
     print("🛡️ Running pre-teleport safety checks...")
@@ -311,39 +331,51 @@ local function joinNextServer()
     end)
     
     if teleportSuccess then
-        print("✅ Teleport initiated successfully!")
-        currentRetries = 0 -- Reset retry counter on success
-    else
-        print("❌ Teleport failed: " .. tostring(teleportError))
-        isTeleporting = false
-        currentRetries += 1
+        print("✅ Teleport initiation successful! Waiting to confirm...")
         
-        -- Enhanced error analysis
-        if isRetryableError(teleportError) then
-            print("🔄 Retryable error detected...")
-            
-            if currentRetries <= MAX_TELEPORT_RETRIES then
-                print("⏳ Waiting " .. RETRY_DELAY .. " seconds before retry " .. currentRetries .. "/" .. MAX_TELEPORT_RETRIES)
-                
-                for i = RETRY_DELAY, 1, -1 do
-                    print("   Retrying in: " .. i .. " seconds")
-                    wait(1)
-                end
-                
-                print("🔄 Attempting retry " .. currentRetries .. "/" .. MAX_TELEPORT_RETRIES)
-                return joinNextServer() -- Retry recursively
-            else
-                print("💥 Maximum retry attempts reached! Restarting script...")
-                wait(2)
-                restartScript()
-            end
+        -- Wait and check if we actually left the server
+        local teleportConfirmed = checkTeleportSuccess()
+        
+        if teleportConfirmed then
+            print("🎉 Teleport completed successfully!")
+            currentRetries = 0 -- Reset retry counter on success
+            return
         else
-            print("⚠️ Non-retryable error, continuing with normal flow...")
-            -- For non-retryable errors, we'll still restart but with a longer delay
-            print("🔄 Restarting script in 15 seconds due to non-retryable error...")
-            wait(15)
+            print("❌ Teleport initiation succeeded but we're still in the same server")
+            teleportError = "Teleport initiation succeeded but failed to change servers (GameEnded error)"
+        end
+    end
+    
+    -- If we reach here, teleport failed
+    print("❌ Teleport failed: " .. tostring(teleportError))
+    isTeleporting = false
+    currentRetries += 1
+    
+    -- Enhanced error analysis
+    if isRetryableError(teleportError) then
+        print("🔄 Retryable error detected...")
+        
+        if currentRetries <= MAX_TELEPORT_RETRIES then
+            print("⏳ Waiting " .. RETRY_DELAY .. " seconds before retry " .. currentRetries .. "/" .. MAX_TELEPORT_RETRIES)
+            
+            for i = RETRY_DELAY, 1, -1 do
+                print("   Retrying in: " .. i .. " seconds")
+                wait(1)
+            end
+            
+            print("🔄 Attempting retry " .. currentRetries .. "/" .. MAX_TELEPORT_RETRIES)
+            return joinNextServer() -- Retry recursively
+        else
+            print("💥 Maximum retry attempts reached! Restarting script...")
+            wait(2)
             restartScript()
         end
+    else
+        print("⚠️ Non-retryable error, continuing with normal flow...")
+        -- For non-retryable errors, we'll still restart but with a longer delay
+        print("🔄 Restarting script in 15 seconds due to non-retryable error...")
+        wait(15)
+        restartScript()
     end
 end
 
@@ -355,6 +387,7 @@ local function main()
     print("   Max Retries: " .. MAX_TELEPORT_RETRIES)
     print("   Retry Delay: " .. RETRY_DELAY .. "s")
     print("   Current Retry Count: " .. currentRetries)
+    print("   Current Server: " .. game.JobId)
     print("==========================================")
 
     -- Step 1: Scan for animals in current server
@@ -367,7 +400,7 @@ local function main()
     print("\n" .. string.rep("=", 50))
     print("⏰ Waiting 30 seconds before server hop...")
 
-    -- Wait 30 seconds before switching servers (reduced from 60 for testing)
+    -- Wait 30 seconds before switching servers
     for i = 30, 1, -1 do
         if i % 10 == 0 or i <= 5 then
             print("   Next server hop in: " .. i .. " seconds")
@@ -395,6 +428,7 @@ end
 print("🚀 Initializing script...")
 currentRetries = 0
 isTeleporting = false
+originalServerId = game.JobId
 
 local success, err = xpcall(main, globalErrorHandler)
 if not success then
