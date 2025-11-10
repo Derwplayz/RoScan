@@ -10,7 +10,7 @@ print("🆔 Server Job ID: " .. game.JobId)
 print("")
 
 -- Single job ID that will be updated by Flask server
-local jobId = "f4d51504-b439-4856-8ae4-6de7652518e1"
+local jobId = "5b4ead35-f04a-4399-92e7-72bff61a0eb7"
 
 -- Flag to track if we're currently teleporting
 local isTeleporting = false
