@@ -1,5 +1,5 @@
 -- Combined Animal Scanner + Auto Server Joiner
-local jobId = "3ebdeb8d-aa78-4a62-8210-19bf770a17fe"
+local jobId = "eb141e27-5c93-4385-a5f1-f4e1c587d7f9"
 
 -- Your Lua script content here
 print("Server Job ID: " .. jobId)
