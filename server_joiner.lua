@@ -2,10 +2,54 @@
 local Workspace = game:GetService("Workspace")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
 
 -- Print server job ID
 print("🆔 Server Job ID: " .. game.JobId)
 print("")
+
+-- Single job ID that will be updated by Flask server
+local jobId = "954cc406-7c09-4394-8b7f-94e3657b5dcf"
+
+-- Flag to track if we're currently teleporting
+local isTeleporting = false
+
+-- Function to check for specific teleport errors
+local function isRetryableError(errorMessage)
+    local lowerError = string.lower(tostring(errorMessage))
+    
+    -- Check for common teleport errors that should trigger a retry
+    if string.find(lowerError, "server is full") or
+       string.find(lowerError, "server full") or
+       string.find(lowerError, "game is full") or
+       string.find(lowerError, "cannot join") or
+       string.find(lowerError, "failed to join") or
+       string.find(lowerError, "not found") or
+       string.find(lowerError, "invalid place") or
+       string.find(lowerError, "teleport failed") then
+        return true
+    end
+    
+    return false
+end
+
+-- Function to restart the entire script
+local function restartScript()
+    print("🔄 Restarting script in 5 seconds...")
+    
+    for i = 5, 1, -1 do
+        print("   Restarting in: " .. i .. " seconds")
+        wait(1)
+    end
+    
+    print("🚀 Restarting script now!")
+    
+    -- Clear any existing connections to avoid memory leaks
+    isTeleporting = false
+    
+    -- Re-execute the main process
+    main()
+end
 
 -- Complete animal database with Generation and Price
 local animalDatabase = {
@@ -152,10 +196,6 @@ local animalDatabase = {
     ["Spooky and Pumpky"] = {Rarity = "Secret", Price = 25000000000, Generation = 80000000},
 }
 
--- Job IDs for server hopping (will be loaded from Pastefy)
-local jobIds = {}
-local currentIndex = 1
-
 -- Function to check if UUID (player plot)
 local function isUUID(name)
     local uuidPattern = "^[a-f0-9]+%-[a-f0-9]+%-[a-f0-9]+%-[a-f0-9]+%-[a-f0-9]+$"
@@ -280,95 +320,66 @@ local function scanForValuableAnimals()
     end
 end
 
--- Function to load job IDs from Pastefy
-local function loadJobIds()
-    print("🔄 Loading server list from Pastefy...")
+-- Function to join next server with error handling
+local function joinNextServer()
+    if isTeleporting then
+        print("⚠️ Already attempting to teleport, skipping...")
+        return
+    end
     
-    local success, result = pcall(function()
-        -- Load the job IDs from Pastefy
-        local response = game:HttpGet("https://pastefy.app/FHSelDnn/raw")
-        
-        -- Extract the jobIds table from the loaded script
-        local jobIdsTable = {}
-        
-        -- Find the jobIds table in the loaded script
-        for line in response:gmatch("[^\r\n]+") do
-            if line:match("local jobIds = {") then
-                -- Extract all the IDs from the table
-                for id in response:gmatch('"([a-f0-9%-]+)"') do
-                    table.insert(jobIdsTable, id)
-                end
-                break
-            end
-        end
-        
-        return jobIdsTable
+    isTeleporting = true
+    print("🚀 Trying to join server: " .. jobId)
+    
+    local success, errorMessage = pcall(function()
+        TeleportService:TeleportToPlaceInstance(109983668079237, jobId, Players.LocalPlayer)
     end)
     
-    if success and #result > 0 then
-        jobIds = result
-        print("✅ Loaded " .. #jobIds .. " server IDs")
+    if success then
+        print("✅ Teleport initiated!")
+        -- If teleport succeeds, we don't need to do anything else
+        -- The script will stop executing when teleport completes
     else
-        print("❌ Failed to load server IDs, using fallback list")
-        -- Fallback to some default IDs
-        jobIds = {
-            "954cc406-7c09-4394-8b7f-94e3657b5dcf",
-            "c4e49a71-d26b-4d87-bb59-86afe43add05", 
-            "b0b1c1b8-579e-4535-bcf1-2509c9d83f61",
-        }
-    end
-end
-
--- Function to join next server
-local function joinNextServer()
-    if #jobIds == 0 then
-        loadJobIds()
-    end
-    
-    if #jobIds > 0 then
-        local jobId = jobIds[currentIndex]
-        print("🚀 Trying to join server: " .. jobId)
+        print("❌ Teleport failed: " .. tostring(errorMessage))
+        isTeleporting = false
         
-        local success, error = pcall(function()
-            TeleportService:TeleportToPlaceInstance(109983668079237, jobId, game.Players.LocalPlayer)
-        end)
-        
-        if success then
-            print("✅ Teleport initiated!")
+        -- Check if this is a retryable error
+        if isRetryableError(errorMessage) then
+            print("🔄 Retryable error detected, restarting script...")
+            wait(2) -- Small delay before restart
+            restartScript()
         else
-            print("❌ Teleport failed: " .. error)
-            -- Try next ID
-            currentIndex = currentIndex + 1
-            if currentIndex > #jobIds then
-                currentIndex = 1
-            end
+            print("⚠️ Non-retryable error, continuing with normal flow...")
+            -- For non-retryable errors, we'll just continue and let the script end
+            -- This might be something like "Player not in game" which wouldn't be fixed by retrying
         end
-    else
-        print("❌ No job IDs available")
     end
 end
 
--- Main execution
-print("🎯 Starting Combined Animal Scanner + Auto Server Joiner")
-print("==========================================")
+-- Main execution function
+local function main()
+    print("🎯 Starting Combined Animal Scanner + Auto Server Joiner")
+    print("==========================================")
 
--- Step 1: Scan for animals in current server
-scanForValuableAnimals()
+    -- Step 1: Scan for animals in current server
+    scanForValuableAnimals()
 
-print("\n" .. string.rep("=", 50))
-print("⏰ Waiting 60 seconds before server hop...")
+    print("\n" .. string.rep("=", 50))
+    print("⏰ Waiting 60 seconds before server hop...")
 
--- Wait 60 seconds before switching servers
-for i = 60, 1, -1 do
-    if i % 10 == 0 or i <= 5 then
-        print("   Next server hop in: " .. i .. " seconds")
+    -- Wait 60 seconds before switching servers
+    for i = 60, 1, -1 do
+        if i % 10 == 0 or i <= 5 then
+            print("   Next server hop in: " .. i .. " seconds")
+        end
+        wait(1)
     end
-    wait(1)
+
+    print("\n" .. string.rep("=", 50))
+    print("🔄 Preparing to switch servers...")
+
+    -- Step 2: Join the server specified in the jobId variable
+    joinNextServer()
 end
 
-print("\n" .. string.rep("=", 50))
-print("🔄 Preparing to switch servers...")
-
--- Step 2: Load job IDs and join next server
-loadJobIds()
-joinNextServer()
+-- Start the main execution
+main()
